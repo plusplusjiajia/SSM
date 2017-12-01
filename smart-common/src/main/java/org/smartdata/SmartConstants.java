@@ -35,4 +35,9 @@ public class SmartConstants {
 
   public static final String SMART_ADMIN_PROTOCOL_NAME =
     "org.smartdata.protocol.SmartAdminProtocol";
+
+  public static final String SMART_CLIENT_DISABLED_ID_FILE =
+    "/tmp/SMART_CLIENT_DISABLED_ID_FILE";
+
+  public static final String NUMBER_OF_SMART_AGENT = "number_of_smart_agent_in_agents_file";
 }

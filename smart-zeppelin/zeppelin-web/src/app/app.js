@@ -75,15 +75,15 @@ var zeppelinWebApp = angular.module('zeppelinWebApp', [
         templateUrl: 'components/login/login.html',
         controller: 'LoginCtrl'
       })
-      .when('/notebook/:noteId', {
+      .when('/notebook', {
         templateUrl: 'app/notebook/notebook.html',
         controller: 'NotebookCtrl',
         resolve: {
-          load: ['heliumService', function(heliumService) {
-            return heliumService.load;
-          }],
           rules0: ['models', function (models) {
             return models.$get.rules();
+          }],
+          notebookInfo: ['models', function (models) {
+            return models.$get.notebookInfo();
           }]
         }
       })
@@ -144,12 +144,7 @@ var zeppelinWebApp = angular.module('zeppelinWebApp', [
       })
       .when('/movers/mover/:ruleId', {
         templateUrl: 'app/dashboard/views/mover/detail/moverActions.html',
-        controller: 'MoverActionsCtrl',
-        resolve: {
-          moverActions0: ['$route', 'models', function ($route, models) {
-            return models.$get.moverActions($route.current.params.ruleId);
-          }]
-        }
+        controller: 'MoverActionsCtrl'
       })
       .when('/actions', {
         templateUrl: 'app/dashboard/views/actions/actions.html',
@@ -228,7 +223,7 @@ var zeppelinWebApp = angular.module('zeppelinWebApp', [
         }
       })
       .otherwise({
-        redirectTo: '/notebook/2CM9DW8NW'
+        redirectTo: '/notebook'
       });
 
     ngToastProvider.configure({

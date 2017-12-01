@@ -20,9 +20,7 @@ NavCtrl.$inject = [
   '$http',
   '$routeParams',
   '$location',
-  'noteListDataFactory',
   'baseUrlSrv',
-  'websocketMsgSrv',
   'arrayOrderingSrv',
   'searchService',
   'TRASH_FOLDER_ID',
@@ -30,14 +28,12 @@ NavCtrl.$inject = [
 ];
 
 function NavCtrl($scope, $rootScope, $http, $routeParams, $location,
-                 noteListDataFactory, baseUrlSrv, websocketMsgSrv,
-                 arrayOrderingSrv, searchService, TRASH_FOLDER_ID, conf) {
+                 baseUrlSrv, arrayOrderingSrv,
+                 searchService, TRASH_FOLDER_ID, conf) {
   var vm = this;
   vm.arrayOrderingSrv = arrayOrderingSrv;
-  vm.connected = websocketMsgSrv.isConnected();
   vm.isActive = isActive;
   vm.logout = logout;
-  vm.notes = noteListDataFactory;
   vm.search = search;
   vm.searchForm = searchService;
   vm.showLoginWindow = showLoginWindow;
@@ -66,8 +62,11 @@ function NavCtrl($scope, $rootScope, $http, $routeParams, $location,
       $scope.query.q = '';
     });
 
+    if ($rootScope.ticket && $location.path() === '/') {
+      $location.path('/notebook');
+    }
+
     getZeppelinVersion();
-    loadNotes();
   }
 
   function isFilterNote(note) {
@@ -86,23 +85,11 @@ function NavCtrl($scope, $rootScope, $http, $routeParams, $location,
     return ($routeParams.noteId === noteId);
   }
 
-  function listConfigurations() {
-    websocketMsgSrv.listConfigurations();
-  }
-
-  function loadNotes() {
-    websocketMsgSrv.getNoteList();
-  }
-
-  function getHomeNote(){
-    websocketMsgSrv.getHomeNote();
-  }
-
   function logout() {
     var logoutURL = baseUrlSrv.getRestApiBase() + '/login/logout';
 
     //for firefox and safari
-    logoutURL = logoutURL.replace('//', '//false:false@');
+    // logoutURL = logoutURL.replace('//', '//false:false@');
     $http.post(logoutURL).error(function() {
       //force authcBasic (if configured) to logout
       $http.post(logoutURL).error(function() {
@@ -135,18 +122,7 @@ function NavCtrl($scope, $rootScope, $http, $routeParams, $location,
    */
 
   $scope.$on('setNoteMenu', function(event, notes) {
-    noteListDataFactory.setNotes(notes);
     initNotebookListEventListener();
-  });
-
-  $scope.$on('setConnectedStatus', function(event, param) {
-    vm.connected = param;
-  });
-
-  $scope.$on('loginSuccess', function(event, param) {
-    listConfigurations();
-    loadNotes();
-    getHomeNote();
   });
 
   /*

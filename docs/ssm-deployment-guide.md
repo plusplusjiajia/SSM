@@ -65,22 +65,38 @@ Configure SSM
    
    ```xml
    <property>
-   <name>smart.dfs.namenode.rpcserver</name>
-      <value>hdfs://namenode-ip:9000</value>
-      <description>Hadoop cluster Namenode RPC server address and port</description>
+       <name>smart.dfs.namenode.rpcserver</name>
+       <value>hdfs://namenode-ip:9000</value>
+       <description>Hadoop cluster Namenode RPC server address and port</description>
    </property>
    ```
- 
+
+   SSM will fetch the whole HDFS namespace when it starts by default. If you do not care about files under some directories (directories for temporary files for example) then you can configure them in the following way, SSM will completely ignore these files. Please note, actions will also not be triggered for these files by rules.
+
+   ```xml
+   <property>
+       <name>smart.ignore.dirs</name>
+       <value>/foodirA,/foodirB</value>
+   </property>
+   ```
+* **Configure Smart Server**
+
+   SSM supports running multiple Smart Servers for high-availability. Only one of these Smart Servers can be in active state and provide services. One of the standby Smart Servers will take its place if the active Smart Server failed.
+
+   Open `servers` file under /conf, put each server's hostname or IP address line by line. Lines start with '#' are treated as comments.
+
+   Please note, the configuration should be the same on all server hosts.
+
 * **Configure Smart Agent (optional)**
 
    This step can be skipped if SSM standalone mode is preferred.
   
-   Open `agents` file under /conf , put each Smart Agent server's hostname or IP address line by line. This configuration file is required by Smart Server to communicate with each Agent. So please make sure Smart Server can access these hosts by SSH without password.
+   Open `agents` file under /conf, put each Smart Agent server's hostname or IP address line by line. Lines start with '#' are treated as comments. This configuration file is required by Smart Server to communicate with each Agent. So please make sure Smart Server can access these hosts by SSH without password.
    After the configuration, the Smart Agents should be installed in the same path on their respective hosts as the one of Smart Server.
  
 * **Configure database**
 
-   SSM currenlty supports MySQL and TiDB(rc vesion) as the backend to store metadata for SSM. TiDB is a distributed NewSQL database, which can provide good scalability and high availability for SSM.
+   SSM currently supports MySQL and TiDB (release-1.0.0 version) as the backend to store metadata. TiDB is a distributed NewSQL database, which can provide good scalability and high availability for SSM.
 
    You just need to follow the guide in one of the two following options to configure database for SSM.
 
@@ -102,7 +118,8 @@ Configure SSM
 
    * Option 2. Use SSM-TiDB
 
-    Since TiDB has been integrated with SSM, you do not need to install TiDB beforehand.
+    To use TiDB, three shared libraries should be built beforehand and put into ${SMART_HOME}/lib. For build guide, you can refer to https://github.com/Intel-bigdata/ssm-tidb/tree/release-1.0.0.
+
     TiDB can be enabled in smart-site.xml.
 
    ```xml
@@ -115,13 +132,15 @@ Configure SSM
 
     For SSM standalone mode, the three instances PD, TiKV and TiDB are all deployed on Smart Server host.
     For SSM with multiple agents mode, Smart Server will run PD and TiDB instance and each agent will run a TiKV instance.
-    So the storage capacity of SSM-TiDB can easily be scaled up by just adding more agent server. This is a great advantage over MySQL.
+    So the storage capacity of SSM-TiDB can easily be scaled up by just adding more agent server. This is a great advantage over using MySQL.
 
-    If TiDB is enabled, the jdbc url should be the following default one. The configuration in druid.xml is shown as follows.
+    If TiDB is enabled, there is no need to configure jdbc url in druid.xml. In TiDB only root user is created initially, so you should set username as root. Optionally, you can set a password for root user in druid.xml.
+
+    An example of configuration in druid.xml for using TiDB is shown as follows.
 
    ```xml
     <properties>
-        <entry key="url">jdbc:mysql://127.0.0.1:4000/test</entry>
+        <!-- <entry key="url">jdbc:mysql://127.0.0.1:4000/test</entry> no need to configure url for TiDB -->
         <entry key="username">root</entry>
         <entry key="password"></entry>
         ......
@@ -129,7 +148,12 @@ Configure SSM
    ```
 
     TiDB supports the usage of MySQL shell. The way of MySQL shell connecting to TiDB server is as same as that for MySQL.
-    The default command to enter into MySQL shell on Smart Server is `mysql -h 127.0.0.1 -u root -P 4000`.
+    If user password is not set in druid, by default the command to enter into MySQL shell on Smart Server is `mysql -h 127.0.0.1 -u root -P 7070`.
+    The 7070 port is the default one configured for tidb.service.port in smart-default.xml.
+    If you modify it, the port in the above command should also be modified accordingly.
+    In TiDB, the database named ssm is used to store metadata.
+
+    By default, the logs of Pd, TiKV and TiDB are under ${SMART_HOME}/logs directory. You can refer to these logs if encountering database fault.
 
 * **Configure user account to authenticate to Web UI**
 
@@ -201,7 +225,7 @@ Run SSM
 
    `http://localhost:7045`
 
-   If you meet any problem, please open the smartserver.log under /logs directory. All the trouble shooting clues are there.
+   If you meet any problem, please open the smartserver.log under ${SMART_HOME}/logs directory. All the trouble shooting clues are there.
    
 * **Stop SSM server**
    
@@ -236,7 +260,7 @@ After install CDH5.10.1 or Hadoop 2.7, please do the following configurations,
 
 * **Hadoop `hdfs-site.xml`**
 
-    Add property `smart.server.rpc.adddress` and `smart.server.rpc.port` to point to installed Smart Server.
+    Add property `smart.server.rpc.address` and `smart.server.rpc.port` to point to installed Smart Server.
 
     ```xml
     <property>
@@ -260,11 +284,11 @@ After install CDH5.10.1 or Hadoop 2.7, please do the following configurations,
 
 * **Make sure Hadoop HDFS Client can access SSM jars**
 
-    After we switch to the SmartFileSystem from the default HDFS implmentation, we need to make sure Hadoop can access SmartFileSystem
+    After we switch to the SmartFileSystem from the default HDFS implementation, we need to make sure Hadoop can access SmartFileSystem
 implementation jars, so that HDFS, YARN and other upper layer applications can access. There are two ways to ensure Hadoop can access SmartFileSystem, 
 	* When SSM compilation is finished, copy all the jar files starts with smart under 
 
-		`/smart-dist/target/smart-data-{version}-SNAPSHOT/smart-data-{vesion}-SNAPSHOT/lib`
+		`/smart-dist/target/smart-data-{version}-SNAPSHOT/smart-data-{version}-SNAPSHOT/lib`
 
 	  to directory in Hadoop/CDH class path.
 	  
@@ -282,7 +306,7 @@ the configuration takes effect. You can try TestDFSIO for example,
 
 	  `hadoop jar ./share/hadoop/mapreduce/hadoop-mapreduce-client-jobclient-2.6.0-cdh5.10.1-tests.jar TestDFSIO –read`
 
-   You may want to replace the jar with the version used in your cluster. After the read data opertion, if all the data files are listed on SSM web UI page "hot files" table, then the integration works very well. 
+   You may want to replace the jar with the version used in your cluster. After the read data operation, if all the data files are listed on SSM web UI page "hot files" table, then the integration works very well. 
 
 
 SSM Rule Examples
@@ -292,8 +316,8 @@ SSM Rule Examples
 	`file: path matches "/test/*" and accessCount(5m) > 3 | allssd`
 
     This rule means all the files under /test directory, if it is accessed 3 times during
-last 5 minutes, SSM should trigger an anction to move the file to SSD. Rule engine
-will evalue the condition every MAX{5s,5m/20} internal.
+last 5 minutes, SSM should trigger an action to move the file to SSD. Rule engine
+will evaluate the condition every MAX{5s,5m/20} internal.
 
 
 * **Move to Archive(Cold) rule**
@@ -317,37 +341,83 @@ single date nor time value is specified, the rule will be evaluated every short 
     This rule will move all XML files under /test directory to SSD. The rule engine will
 evaluate whether the condition meets every 3s. 
 
-Rule priority and rule order will be considered to implement yet. Currenlty all rules
-will run parallelly. For a full detail rule format definition, please refer to 
+
+* **Backup files between clusters**
+     
+     `file: every 500ms | path matches "/test-10000-10MB/*"| sync -dest hdfs://sr518:9000/test-10000-10MB/`
+	
+     This rule will copy file and update any namespace changes(add,delete,rename,append) under source directory "/test-10000-10MB/" to destination directory "hdfs://sr518:9000/test-10000-10MB/". 
+
+* **Support action chain**
+
+	`file: path matches "/test/*" and age > 90d | archive ; setReplica 1 `
+	
+     SSM use ";" to separate different actions in a rule. The execution trigger of later action depends on the successful execution of the prior action. If prior action fails, the following actions will not be executed.
+     
+     Above rule means all the files under /test directory, if it's age is more than 90 days, SSM will move the file to archive storage, and set the replica to 1. "setReplica 1" is a not a built-in action. Users need to implement it by themselves.
+     
+     Please refer to https://github.com/Intel-bigdata/SSM/blob/trunk/docs/support-new-action-guide.md for how to add a new action in SSM.
+     
+Rule priority and rule order will be considered to implement yet. Currently all rules
+will run in parallel. For a full detail rule format definition, please refer to
 https://github.com/Intel-bigdata/SSM/blob/trunk/docs/admin-user-guide.md
 
 
-Performance Tunning
+Performance Tuning
 ---------------------------------------------------------------------------------
-There are two configurable parameters which impact the SSM rule evalute and action 
-execution parallism.
+1. Rule and Cmdlet concurrency
 
-**smart.rule.executors**
+   There are two configurable parameters which impact the SSM rule evaluation and action execution parallelism.
 
-Current default value is 5, which means system will concurrently evalue 5 rule state 
-at the same time.
+    **smart.rule.executors**
 
-**smart.cmdlet.executors**
+    Current default value is 5, which means system will concurrently evaluate 5 rule state at the same time.
+    
+    ```xml
+    <property>
+        <name>smart.rule.executors</name>
+        <value>5</value>
+        <description>Max number of rules that can be executed in parallel</description>
+     </property>
+     ```
 
-Current default value is 10, means there will be 10 actions concurrenlty executed at
-the same time. 
-If the current configuration cannot meet your performance requirements, you can change
-it by define the property in the smart-site.xml under /conf directory. Here is an example
-to change the ation execution paralliem to 50.
+    **smart.cmdlet.executors**
 
-```xml
-<property>
-  <name>smart.cmdlet.executors</name>
-  <value>50</value>
-</property>
-```
+    Current default value is 10, means there will be 10 actions concurrently executed at the same time. 
+    If the current configuration cannot meet your performance requirements, you can change it by defining the property in the smart-site.xml under /conf directory. Here is an example to change the action execution paralliem to 50.
 
-SSM service restart is required after the configuration change. 
+     ```xml
+     <property>
+         <name>smart.cmdlet.executors</name>
+         <value>50</value>
+     </property>
+     ```
+
+2. Cmdlet history purge in metastore  
+
+    SSM choose to save cmdlet and action execution history in metastore for audit and log purpose. To not blow up the metastore space, SSM support periodically purge cmdlet and action execution history. Property `smart.cmdlet.hist.max.num.records` and `smart.cmdlet.hist.max.record.lifetime` are supported in smart-site.xml.  When either condition is met, SSM will trigger backend thread to purge the history records.
+
+    ```xml
+    <property>
+        <name>smart.cmdlet.hist.max.num.records</name>
+        <value>100000</value>
+        <description>Maximum number of historic cmdlet records kept in SSM server. Oldest cmdlets will be deleted if exceeds the threshold. 
+        </description>
+     </property>
+
+     <property>
+        <name>smart.cmdlet.hist.max.record.lifetime</name>
+        <value>30day</value>
+        <description>Maximum life time of historic cmdlet records kept in SSM server. Cmdlet record will be deleted from SSM server if exceeds the threshold. Valid time unit can be 'day', 'hour', 'min', 'sec'. The minimum update granularity is 5sec.
+        </description>
+     </property>
+     ```
+
+      SSM service restart is required after the configuration changes.
+
+3. Disable SSM Client
+
+    For some reasons, if you do want to disable SmartDFSClients on a specific host from contacting SSM server, it can be realized by creating file "/tmp/SMART_CLIENT_DISABLED_ID_FILE" on that node's local file system. After that, newly created SmartDFSClients on that node will not try to connect SSM server while other functions (like HDFS read/write) will remain unaffected.
 
 
 Trouble Shooting
@@ -377,11 +447,10 @@ All logs will go to SmartSerer.log under /logs directory.
   Make sure there is no system mover running. Try to restart the SSM service will solve the problem. 
 	 
 	 
-Know Issues(2017-08-19)
+Notes
 ---------------------------------------------------------------------------------
-1. On UI, actions in waiting list will show "CreateTime" 1969-12-31 16:00:00 and "Running Time" 36 weeks and 2 days. This will be improved later. 
-2. If there is no SSD and Archive type disk volumn configured in DataNodes, action generated by "allssd" and "archive" rule wil fail.
-3. When SSM starts, it will pull the whole namespace form Namenode. If the namespace is very big, it will takes minutes for SSM to finish the namespace synchronization. SSM may half fuction during this period. 
+1. If there is no SSD and Archive type disk volume configured in DataNodes, actions generated by "allssd" and "archive" rule will fail.
+2. When SSM starts, it will pull the whole namespace from Namenode. If the namespace is very huge, it will takes time for SSM to finish the namespace synchronization. SSM may half function during this period.
 
 
    

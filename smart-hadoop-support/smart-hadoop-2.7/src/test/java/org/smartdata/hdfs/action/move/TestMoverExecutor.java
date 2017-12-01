@@ -47,6 +47,9 @@ public class TestMoverExecutor extends MiniClusterWithStoragesHarness {
 
   private void generateFile(String content) throws Exception {
     Path dir = new Path(fileDir);
+    if (dfs.exists(dir)) {
+      dfs.delete(dir, true);
+    }
     dfs.mkdirs(dir);
     // write to DISK
     dfs.setStoragePolicy(dir, "HOT");
@@ -82,16 +85,29 @@ public class TestMoverExecutor extends MiniClusterWithStoragesHarness {
 
     // Do move executor
     MoverStatus status = new MoverStatus();
-    MoverExecutor moverExecutor = new MoverExecutor(status, conf, 10, 500);
+    MoverExecutor moverExecutor = new MoverExecutor(status, conf, 10, 3);
     int failedMoves = moverExecutor.executeMove(plan);
     Assert.assertEquals(0, failedMoves);
+    cluster.triggerBlockReports();
 
-    // Check storage after move
-    for (LocatedBlock lb : getLocatedBlocks(dfsClient, fileName)) {
-      for (DatanodeInfo datanodeInfo : lb.getLocations()) {
-        Assert.assertTrue(datanodeInfo instanceof DatanodeInfoWithStorage);
-        Assert.assertEquals(StorageType.SSD, ((DatanodeInfoWithStorage)datanodeInfo).getStorageType());
+    boolean success = true;
+    for (int i = 0; i < 3; i++) {
+      success = true;
+      // Check storage after move
+      for (LocatedBlock lb : getLocatedBlocks(dfsClient, fileName)) {
+        for (DatanodeInfo datanodeInfo : lb.getLocations()) {
+          StorageType realType = ((DatanodeInfoWithStorage) datanodeInfo).getStorageType();
+          success = realType == StorageType.SSD && success;
+        }
       }
+
+      if (success) {
+        break;
+      }
+      Thread.sleep(500);
+    }
+    if (!success) {
+      Assert.fail("Not the expected storage type SSD.");
     }
   }
 

@@ -928,17 +928,41 @@ public class MetaStore implements CopyMetaService, CmdletMetaService, BackupMeta
     }
   }
 
-  public void deleteAllCmdlets() throws MetaStoreException {
+  public void deleteCmdlet(long cid) throws MetaStoreException {
     try {
-      cmdletDao.deleteAll();
+      cmdletDao.delete(cid);
     } catch (Exception e) {
       throw new MetaStoreException(e);
     }
   }
 
-  public void deleteCmdlet(long cid) throws MetaStoreException {
+  /**
+   * Delete finished cmdlets before given timestamp, actions belonging to these cmdlets
+   * will also be deleted. Cmdlet's generate_time is used for comparison.
+   *
+   * @param timestamp
+   * @return number of cmdlets deleted
+   * @throws MetaStoreException
+   */
+  public int deleteFinishedCmdletsWithGenTimeBefore(long timestamp) throws MetaStoreException {
     try {
-      cmdletDao.delete(cid);
+      return cmdletDao.deleteBeforeTime(timestamp);
+    } catch (Exception e) {
+      throw new MetaStoreException(e);
+    }
+  }
+
+  public int deleteKeepNewCmdlets(long num) throws MetaStoreException {
+    try {
+      return cmdletDao.deleteKeepNewCmd(num);
+    } catch (Exception e) {
+      throw new MetaStoreException(e);
+    }
+  }
+
+  public int getNumCmdletsInTerminiatedStates() throws MetaStoreException {
+    try {
+      return cmdletDao.getNumCmdletsInTerminiatedStates();
     } catch (Exception e) {
       throw new MetaStoreException(e);
     }
@@ -1300,6 +1324,15 @@ public class MetaStore implements CopyMetaService, CmdletMetaService, BackupMeta
     }
   }
 
+  public synchronized void insertFileDiffs(List<FileDiff> fileDiffs)
+      throws MetaStoreException {
+    try {
+      fileDiffDao.insert(fileDiffs);
+    } catch (Exception e) {
+      throw new MetaStoreException(e);
+    }
+  }
+
   public FileDiff getFileDiff(long did) throws MetaStoreException {
     try {
       return fileDiffDao.getById(did);
@@ -1362,6 +1395,33 @@ public class MetaStore implements CopyMetaService, CmdletMetaService, BackupMeta
     } catch (Exception e) {
       throw new MetaStoreException(e);
     }
+  }
+
+  public boolean updateFileDiff(FileDiff fileDiff)
+      throws MetaStoreException {
+    long did = fileDiff.getDiffId();
+    FileDiff preFileDiff = getFileDiff(did);
+    if (preFileDiff == null) {
+      insertFileDiff(fileDiff);
+    }
+    try {
+      return fileDiffDao.update(fileDiff) >= 0;
+    } catch (Exception e) {
+      throw new MetaStoreException(e);
+    }
+  }
+
+  public boolean updateFileDiff(List<FileDiff> fileDiffs)
+    throws MetaStoreException {
+    if (fileDiffs == null || fileDiffs.size() == 0) {
+      return true;
+    }
+    for (FileDiff fileDiff: fileDiffs) {
+      if (!updateFileDiff(fileDiff)) {
+        return false;
+      }
+    }
+    return true;
   }
 
 
